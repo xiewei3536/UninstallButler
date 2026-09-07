@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit tests (UninstallCore)
+        run: |
+          set -o pipefail
+          swift test 2>&1 | tail -40
+
+  build-and-release:
+    needs: test
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build universal .app and .dmg
+        env:
+          # 由 tag 決定 App 版本號（見 build.sh）
+          VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          SIGN_ID: "-"
+        run: ./build.sh
+
+      - name: Verify universal binary
+        run: |
+          lipo -info dist/UninstallButler.app/Contents/MacOS/UninstallButler
+          lipo -info dist/UninstallButler.app/Contents/MacOS/UninstallButler | grep -q x86_64
+          lipo -info dist/UninstallButler.app/Contents/MacOS/UninstallButler | grep -q arm64
+
+      - name: Self-test on the runner (no deletion)
+        run: UNINSTALLBUTLER_SELFTEST=1 dist/UninstallButler.app/Contents/MacOS/UninstallButler | head -60
+
+      - name: Create release and upload DMG
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          gh release create "$TAG" \
+            --title "Uninstall Butler $TAG" \
+            --notes "**Uninstall Butler $TAG** — Universal (Intel & Apple Silicon), macOS 13+
+
+首次開啟：由於未經 Apple 公證，請在 App 上按右鍵 → 打開。
+First launch: unsigned build — right-click the app and choose Open." 2>/dev/null || true
+          gh release upload "$TAG" dist/UninstallButler.dmg --clobber
