@@ -138,6 +138,7 @@ func cleanup() {
     try? fm.removeItem(at: URL(fileURLWithPath: "/tmp/ub-demo"))
     for (rel, _) in demoResidue { try? fm.removeItem(at: lib.appendingPathComponent(rel)) }
     try? fm.removeItem(at: lib.appendingPathComponent("Application Support/fjordlabs"))
+    try? fm.removeItem(at: lib.appendingPathComponent("Application Support/Fjord Browser"))
     var buf = [Int8](repeating: 0, count: Int(PATH_MAX))
     if confstr(_CS_DARWIN_USER_CACHE_DIR, &buf, buf.count) > 0 {
         try? fm.removeItem(at: URL(fileURLWithPath: String(cString: buf)).appendingPathComponent("com.fjordlabs.FjordBrowser"))
