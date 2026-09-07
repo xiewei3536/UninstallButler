@@ -48,8 +48,9 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           gh release create "$TAG" \
             --title "Uninstall Butler $TAG" \
-            --notes "**Uninstall Butler $TAG** — Universal (Intel & Apple Silicon), macOS 13+
-
-首次開啟：由於未經 Apple 公證，請在 App 上按右鍵 → 打開。
-First launch: unsigned build — right-click the app and choose Open." 2>/dev/null || true
+            --notes "$(printf '%s\n' \
+              "**Uninstall Butler $TAG** — Universal (Intel & Apple Silicon), macOS 13+" \
+              "" \
+              "首次開啟：由於未經 Apple 公證，請在 App 上按右鍵 → 打開。" \
+              "First launch: unsigned build — right-click the app and choose Open.")" 2>/dev/null || true
           gh release upload "$TAG" dist/UninstallButler.dmg --clobber
