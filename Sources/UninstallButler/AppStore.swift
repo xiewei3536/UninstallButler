@@ -175,15 +175,18 @@ final class AppStore: ObservableObject {
         guard residue[app.id] == nil, !residueLoading.contains(app.id) else { return }
         residueLoading.insert(app.id)
         let context = ResidueFinder.Context(installedApps: apps)
-        var snapshot = app
+        let base = app
         Task.detached(priority: .userInitiated) { [weak self] in
+            // Swift 5.10 嚴格並行檢查：閉包內只用 let，不捕捉外部 var
+            var snapshot = base
             if snapshot.sizeBytes == nil { snapshot.sizeBytes = SizeCalculator.bundleSize(of: snapshot.resolvedURL) }
-            let items = ResidueFinder.find(for: snapshot, context: context)
+            let prepared = snapshot
+            let items = ResidueFinder.find(for: prepared, context: context)
             await MainActor.run { [weak self] in
                 guard let self else { return }
                 self.residueLoading.remove(app.id)
                 self.residue[app.id] = items
-                if let i = self.apps.firstIndex(where: { $0.id == app.id }), self.apps[i].sizeBytes == nil { self.apps[i].sizeBytes = snapshot.sizeBytes }
+                if let i = self.apps.firstIndex(where: { $0.id == app.id }), self.apps[i].sizeBytes == nil { self.apps[i].sizeBytes = prepared.sizeBytes }
                 self.itemSelection[app.id] = Set(items.filter { self.shouldSelectByDefault($0) }.map(\.id))
             }
         }
