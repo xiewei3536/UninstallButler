@@ -37,10 +37,10 @@ public enum AppScanner {
         guard depth <= 2 else { return }
         for child in FS.children(of: folder, includeHidden: false) {
             let isLink = FS.isSymlink(child)
-            let resolved = child.resolvingSymlinksInPath()
+            let resolved = isLink ? child.resolvingSymlinksInPath() : child
             if child.pathExtension.lowercased() == "app" || resolved.pathExtension.lowercased() == "app" {
                 guard FS.isDirectory(resolved) else { continue }
-                if seen.insert(resolved.path).inserted { out.append((child, resolved, isLink)) }
+                if seen.insert(resolved.resolvingSymlinksInPath().path).inserted { out.append((child, resolved, isLink)) }
             } else if !isLink, FS.isDirectory(child), child.pathExtension.isEmpty {
                 collectAppURLs(in: child, depth: depth + 1, seen: &seen, into: &out)
             }
@@ -49,7 +49,7 @@ public enum AppScanner {
 
     /// 讀取單一 App 的資訊（不含大小，大小另外背景計算）
     public static func inspect(appURL: URL, resolved: URL? = nil) -> InstalledApp? {
-        let real = resolved ?? appURL.resolvingSymlinksInPath()
+        let real = resolved ?? (FS.isSymlink(appURL) ? appURL.resolvingSymlinksInPath() : appURL)
         let infoURL = real.appendingPathComponent("Contents/Info.plist")
         guard let info = FS.readPlist(infoURL) else { return nil }
 

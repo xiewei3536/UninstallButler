@@ -230,15 +230,25 @@ public enum ResidueFinder {
             return nil
         }
 
+        /// App 的所有等價路徑（列出的路徑、symlink 解析後、中間目錄也解析後）
+        var appPaths: [String] {
+            var set: [String] = []
+            for p in [app.url.path, appPath, (appPath as NSString).resolvingSymlinksInPath] where !set.contains(p) { set.append(p) }
+            return set
+        }
+
+        func isInsideApp(_ path: String) -> Bool {
+            let std = (path as NSString).standardizingPath
+            let resolved = (std as NSString).resolvingSymlinksInPath
+            for root in appPaths where std == root || std.hasPrefix(root + "/") || resolved == root || resolved.hasPrefix(root + "/") { return true }
+            return false
+        }
+
         public func programIsInsideApp(_ plist: [String: Any]) -> Bool {
             var paths: [String] = []
             if let p = plist["Program"] as? String { paths.append(p) }
             if let args = plist["ProgramArguments"] as? [String], let first = args.first { paths.append(first) }
-            for p in paths {
-                let std = (p as NSString).standardizingPath
-                if std == appPath || std.hasPrefix(appPath + "/") { return true }
-            }
-            return false
+            return paths.contains { isInsideApp($0) }
         }
     }
 
@@ -253,7 +263,7 @@ public enum ResidueFinder {
                                requiresAdmin: !FS.currentUserCanDelete(app.url), matchedBy: .isApp)
         main.sizeBytes = app.sizeBytes
         items.append(main)
-        if app.resolvedURL.path != app.url.path {
+        if app.isSymlink, app.resolvedURL.path != app.url.path {
             var target = ResidueItem(url: app.resolvedURL, category: .appBundle, isDirectory: true,
                                      requiresAdmin: !FS.currentUserCanDelete(app.resolvedURL), matchedBy: .symlinkTarget)
             target.sizeBytes = app.sizeBytes
@@ -319,9 +329,8 @@ public enum ResidueFinder {
             } else if loc.category == .container {
                 // 沙盒容器：先看中繼資料指向哪個 App（最精確），再退回名稱比對
                 if let meta = ContainerMetadata.read(child), let owner = meta.appBundlePath {
-                    let std = (owner as NSString).standardizingPath
-                    if std == m.appPath || std.hasPrefix(m.appPath + "/") { reason = .containerOwner }
-                    else if FS.exists(URL(fileURLWithPath: std)) { continue } // 屬於別的 App
+                    if m.isInsideApp(owner) { reason = .containerOwner }
+                    else if FS.exists(URL(fileURLWithPath: (owner as NSString).standardizingPath)) { continue } // 屬於別的 App
                 }
                 if reason == nil, let id = m.idMatch(name) { reason = .bundleID(id) }
                 if reason == nil, let vp = m.vendorPrefixMatch(name) { reason = .vendorPrefix(vp); cautions.append(.sameDeveloper) }
@@ -476,8 +485,7 @@ public enum ResidueFinder {
             for child in FS.children(of: dir) {
                 guard let dest = try? FileManager.default.destinationOfSymbolicLink(atPath: child.path) else { continue }
                 let abs = dest.hasPrefix("/") ? dest : dir.appendingPathComponent(dest).path
-                let std = (abs as NSString).standardizingPath
-                if std.hasPrefix(m.appPath + "/") {
+                if m.isInsideApp(abs) && (abs as NSString).standardizingPath != m.appPath {
                     var item = ResidueItem(url: child, category: .commandLine, isDirectory: false,
                                            requiresAdmin: !FS.currentUserCanDelete(child), matchedBy: .symlinkTarget)
                     item.sizeBytes = 0

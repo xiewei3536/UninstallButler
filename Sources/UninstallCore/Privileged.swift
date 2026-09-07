@@ -77,10 +77,16 @@ public enum PrivilegedRunner {
 
 public enum RunningApps {
     public static func instances(of app: InstalledApp) -> [NSRunningApplication] {
-        let root = app.resolvedURL.path
+        let roots = Set([app.url.path, app.resolvedURL.path, app.resolvedURL.resolvingSymlinksInPath().path])
+        func inside(_ url: URL?) -> Bool {
+            guard let url else { return false }
+            for p in [url.path, url.resolvingSymlinksInPath().path] {
+                for root in roots where p == root || p.hasPrefix(root + "/") { return true }
+            }
+            return false
+        }
         return NSWorkspace.shared.runningApplications.filter { r in
-            if let b = r.bundleURL?.resolvingSymlinksInPath().path, b == root || b.hasPrefix(root + "/") { return true }
-            if let e = r.executableURL?.resolvingSymlinksInPath().path, e.hasPrefix(root + "/") { return true }
+            if inside(r.bundleURL) || inside(r.executableURL) { return true }
             if let id = app.bundleID, r.bundleIdentifier == id { return true }
             return false
         }
@@ -99,7 +105,9 @@ public enum RunningApps {
         for p in procs where !p.isTerminated { p.forceTerminate() }
         usleep(300_000)
         // 非 GUI 的背景程序（agent、helper）
-        Shell.run("/usr/bin/pkill", ["-9", "-f", NSRegularExpression.escapedPattern(for: app.resolvedURL.path + "/")], timeout: 5)
+        for root in Set([app.resolvedURL.path, app.resolvedURL.resolvingSymlinksInPath().path]) {
+            Shell.run("/usr/bin/pkill", ["-9", "-f", NSRegularExpression.escapedPattern(for: root + "/")], timeout: 5)
+        }
         return instances(of: app).allSatisfy { $0.isTerminated }
     }
 }

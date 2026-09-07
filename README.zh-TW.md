@@ -13,7 +13,7 @@
 ![Swift](https://img.shields.io/badge/Swift-5.9-F05138?logo=swift&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-<img src="docs/screenshot.png" width="860" alt="解除安裝管家主視窗">
+<img src="docs/screenshot-zh-TW.png" width="860" alt="解除安裝管家主視窗">
 
 </div>
 

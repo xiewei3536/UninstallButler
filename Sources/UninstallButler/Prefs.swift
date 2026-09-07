@@ -24,6 +24,10 @@ final class Prefs: ObservableObject {
     }
 
     var appFolders: [URL] {
+        // 截圖 / 示範用：只掃指定資料夾（冒號分隔），不碰真實的應用程式資料夾
+        if let demo = ProcessInfo.processInfo.environment["UNINSTALLBUTLER_SNAPSHOT_FOLDERS"], !demo.isEmpty {
+            return demo.split(separator: ":").map { URL(fileURLWithPath: String($0), isDirectory: true) }
+        }
         var urls = Paths.defaultAppFolders
         for p in extraFolders {
             let u = URL(fileURLWithPath: (p as NSString).expandingTildeInPath, isDirectory: true)

@@ -12,8 +12,8 @@ NAME="${UNINSTALLBUTLER_SIGN_IDENTITY:-UninstallButler Dev}"
 KC="$HOME/Library/Keychains/uninstallbutler-dev.keychain-db"
 PASS_FILE="$HOME/Library/Application Support/UninstallButler/dev-keychain.pass"
 
-if [[ -f "$KC" ]] && security find-identity -v -p codesigning "$KC" 2>/dev/null | grep -q "\"$NAME\""; then
-  echo "✓ 身分「$NAME」已存在於 $KC"
+if [[ -f "${KC}" ]] && security find-identity -v -p codesigning "${KC}" 2>/dev/null | grep -q "\"$NAME\""; then
+  echo "✓ 身分「${NAME}」已存在於 ${KC}"
   exit 0
 fi
 
@@ -25,11 +25,11 @@ else
   (umask 077; printf '%s' "$PASS" > "$PASS_FILE")
 fi
 
-if [[ ! -f "$KC" ]]; then
-  security create-keychain -p "$PASS" "$KC"
+if [[ ! -f "${KC}" ]]; then
+  security create-keychain -p "$PASS" "${KC}"
 fi
-security set-keychain-settings "$KC"
-security unlock-keychain -p "$PASS" "$KC"
+security set-keychain-settings "${KC}"
+security unlock-keychain -p "$PASS" "${KC}"
 
 if ! security list-keychains -d user | grep -q "uninstallbutler-dev.keychain-db"; then
   existing=()
@@ -37,7 +37,7 @@ if ! security list-keychains -d user | grep -q "uninstallbutler-dev.keychain-db"
     line="${line#"${line%%[![:space:]]*}"}"; line="${line%\"}"; line="${line#\"}"
     [[ -n "$line" ]] && existing+=("$line")
   done < <(security list-keychains -d user)
-  security list-keychains -d user -s "${existing[@]}" "$KC"
+  security list-keychains -d user -s "${existing[@]}" "${KC}"
 fi
 
 TMP="$(mktemp -d)"
@@ -60,14 +60,14 @@ openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -sha256 \
   -keyout "$TMP/key.pem" -out "$TMP/cert.pem" -config "$TMP/ext.cnf" 2>/dev/null
 
 openssl rsa -in "$TMP/key.pem" -out "$TMP/key_rsa.pem" 2>/dev/null
-security import "$TMP/key_rsa.pem" -k "$KC" -t priv -f openssl -T /usr/bin/codesign -T /usr/bin/security >/dev/null
-echo "▸ 信任「$NAME」用於程式碼簽章 — macOS 會要求輸入一次登入密碼。"
-if ! security add-trusted-cert -r trustRoot -p codeSign -k "$KC" "$TMP/cert.pem"; then
+security import "$TMP/key_rsa.pem" -k "${KC}" -t priv -f openssl -T /usr/bin/codesign -T /usr/bin/security >/dev/null
+echo "▸ 信任「${NAME}」用於程式碼簽章 — macOS 會要求輸入一次登入密碼。"
+if ! security add-trusted-cert -r trustRoot -p codeSign -k "${KC}" "$TMP/cert.pem"; then
   echo "✗ 未套用信任設定（對話框被取消？）。憑證在被信任前無法使用，請重新執行本腳本。"
   exit 1
 fi
-security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$PASS" "$KC" >/dev/null 2>&1 || true
+security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$PASS" "${KC}" >/dev/null 2>&1 || true
 
 echo "✓ 身分已就緒："
-security find-identity -v -p codesigning "$KC" | grep "$NAME" || true
-echo "  build.sh 之後會自動用「$NAME」簽名。"
+security find-identity -v -p codesigning "${KC}" | grep "$NAME" || true
+echo "  build.sh 之後會自動用「${NAME}」簽名。"

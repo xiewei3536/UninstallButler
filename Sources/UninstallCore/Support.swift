@@ -128,7 +128,6 @@ public enum SizeCalculator {
     public static func spotlightSize(of url: URL) -> Int64? {
         guard let item = MDItemCreate(nil, url.path as CFString) else { return nil }
         if let n = MDItemCopyAttribute(item, "kMDItemPhysicalSize" as CFString) as? NSNumber { return n.int64Value }
-        if let n = MDItemCopyAttribute(item, kMDItemFSSize) as? NSNumber { return n.int64Value }
         return nil
     }
 
@@ -150,9 +149,9 @@ public enum SizeCalculator {
         return total
     }
 
-    /// App 大小：先試 Spotlight，沒有就逐檔算
+    /// App 大小：先試 Spotlight（索引過的套件會有整包大小），沒有或小得不合理就逐檔算
     public static func bundleSize(of url: URL) -> Int64 {
-        if let s = spotlightSize(of: url), s > 0 { return s }
+        if let s = spotlightSize(of: url), s >= 512 * 1024 { return s }
         return size(of: url)
     }
 }

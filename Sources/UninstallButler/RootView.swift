@@ -109,8 +109,9 @@ struct SidebarView: View {
                 }
                 .buttonStyle(.plain).foregroundStyle(.secondary)
                 Spacer()
-                Text("v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")")
-                    .font(.caption2).foregroundStyle(.tertiary)
+                if let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+                    Text("v\(v)").font(.caption2).foregroundStyle(.tertiary)
+                }
             }
         }
         .padding(12)
