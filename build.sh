@@ -78,8 +78,9 @@ cat > "$BUNDLE/Contents/Info.plist" <<PLIST
 <dict>
     <key>CFBundleExecutable</key><string>$APP</string>
     <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
-    <key>CFBundleName</key><string>Uninstall Butler</string>
-    <key>CFBundleDisplayName</key><string>Uninstall Butler</string>
+    <!-- 未本地化的名稱必須與 .app 檔名一致，Finder 才會套用各語系 InfoPlist.strings 的顯示名稱 -->
+    <key>CFBundleName</key><string>$APP</string>
+    <key>CFBundleDisplayName</key><string>$APP</string>
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
     <key>CFBundleVersion</key><string>$BUILD_NUMBER</string>
     <key>CFBundlePackageType</key><string>APPL</string>
