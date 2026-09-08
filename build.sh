@@ -3,6 +3,7 @@
 #   ./build.sh                      本機建置（版本取自 tag 或下方預設值）
 #   VERSION=1.2.3 ./build.sh        指定版本（CI 由 tag 傳入）
 #   SIGN_ID="UninstallButler Dev" ./build.sh   指定簽章身分（預設自動偵測，找不到就 ad-hoc）
+#   ./build.sh --install            建置後原子性地安裝/更新到 /Applications 並開啟
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -126,9 +127,37 @@ mkdir -p "$STAGE"
 cp -R "$BUNDLE" "$STAGE/"
 ln -sf /Applications "$STAGE/Applications"
 hdiutil create -volname "Uninstall Butler" -srcfolder "$STAGE" -format UDZO -ov "$DIST/$APP.dmg" >/dev/null
+
+# 建置過程會讓 Launch Services 把 dist/ 與 dmg-stage/ 的副本也登錄成同一個 bundle ID；
+# 幽靈記錄會讓「啟動台」找不到裝在 /Applications 的正本。這裡把副本從 LS 資料庫移除（檔案照舊留著）。
+LSREG=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+"$LSREG" -u "$STAGE/$APP.app" >/dev/null 2>&1 || true
+"$LSREG" -u "$BUNDLE" >/dev/null 2>&1 || true
 rm -rf "$STAGE" "$ICONSET" "$DIST/icon_1024.png" "$DIST/$APP-universal"
 
 echo ""
 echo "✅ 完成:"
 echo "   $DIST/$APP.app   （可直接拖進「應用程式」）"
 echo "   $DIST/$APP.dmg   （可分享給其他 Intel / Apple Silicon Mac）"
+
+# ./build.sh --install：原子性地換掉 /Applications 裡的舊版
+#   用 mv 整包搬進去（而不是 rm -rf 後 ditto 逐檔複製），啟動台與 Launch Services 才會把它當成一個完整的新 App 收進去；
+#   逐檔複製到同一路徑曾讓啟動台永遠看不到這個 App。
+if [ "${1:-}" = "--install" ]; then
+    echo "▸ 安裝到 /Applications/$APP.app…"
+    osascript -e "tell application \"$APP\" to quit" >/dev/null 2>&1 || true
+    pkill -x "$APP" 2>/dev/null || true
+    sleep 1
+    STAGING="$(mktemp -d "${TMPDIR:-/tmp}/ub-install.XXXXXX")"
+    ditto "$BUNDLE" "$STAGING/$APP.app"
+    "$LSREG" -u "$STAGING/$APP.app" >/dev/null 2>&1 || true
+    if [ -d "/Applications/$APP.app" ]; then
+        "$LSREG" -u "/Applications/$APP.app" >/dev/null 2>&1 || true
+        mv "/Applications/$APP.app" "$STAGING/old-$APP.app"
+    fi
+    mv "$STAGING/$APP.app" "/Applications/$APP.app"
+    rm -rf "$STAGING"
+    "$LSREG" -f "/Applications/$APP.app" >/dev/null 2>&1 || true
+    echo "   已安裝，Finder 顯示為本地化名稱；啟動台約 10 秒內出現。"
+    open "/Applications/$APP.app"
+fi
